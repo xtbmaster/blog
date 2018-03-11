@@ -67,16 +67,8 @@
     (spit (io/file dir "post.edn")
       (pr-str (assoc post :pictures (vec picture-names))))))
 
-(defn- read-session [handler]
-  (fn [req]
-    (let [ session (some-> (get-in req [:cookies "session" :value])
-                     (edn/read-string))]
-      (handler (if (some? session)
-                 (assoc req :user (:user session))
-                 req)))))
-
 (defn check-session [req]
-  (when (nil? (:user req))
+  (when (nil? (get-in req [:session :user]))
     { :status 302
       :headers { "Location" (str "/forbidden?redirect=" (encode-uri-component (:uri req)))}}))
 
@@ -106,8 +98,8 @@
                picture (get params "picture")]
           (save-post! { :id post-id
                         :body body
-                        :author (:user req)
-                        :created (java.util.Date)}
+                        :author (get-in req [:session :user])
+                        :created (now)}
             [picture])
           { :status 302
             :headers { "Location" (str "/post/" post-id)}})))))
@@ -132,9 +124,9 @@
            redirect (get (:params req) "redirect")]
       { :status 302
         :headers { "Location" redirect}
-        :cookies { "session" { :value (pr-str { :user user})
-                               :http-only true
-                               :secure false}}}))
+        :session { :user user
+                   :creater (now)}}))
+        
 
   (compojure/GET "/forbidden" [:as req]
     { :body (render-html (forbidden-page (get (:params req) "redirect")))})
@@ -286,15 +278,18 @@
 
 (def cookie-secret
   (if (.exists (io/file "COOKIE_SECRET"))
-    (read-bytes "COOKIE_SECRET")
+    (read-bytes "COOKIE_SECRET" 16)
     (let [bytes (random-bytes 16)]
-      (save-bytes! bytes "COOKIE_SECRET")
+      (save-bytes! "COOKIE_SECRET" bytes)
       bytes)))
-  
+
 (def app
   (-> routes
-    (read-session)
-    (session/wrap-session)
+    (session/wrap-session
+      { :store (session.cookie/cookie-store { :key cookie-secret})
+        :cookie-name "blog"
+        :cookies-attrs { :http-only true
+                         :secure false}})
     (ring.middleware.params/wrap-params)
     (with-headers { "Content-Type" "text/html; charset=utf-8"
                     "Cache-Control" "no-cache"
