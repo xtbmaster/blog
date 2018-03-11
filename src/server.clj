@@ -267,11 +267,29 @@
       (handler request)
       (update :headers merge headers))))
 
+(defn save-bytes! [file ^bytes bytes]
+  (with-open [os (io/output-stream (io/file file))]
+    (.write os bytes)))
+
+
+(defn read-bytes [file len]
+  (with-open [is (io/input-stream (io/file file))]
+    (let [res (make-array Byte/TYPE len)]
+      (.read is res 0 len)
+      res)))
+
 (defn random-bytes
   [size]
   (let [seed (byte-array size)]
     (.nextBytes (java.security.SecureRandom.) seed)
     seed))
+
+(def cookie-secret
+  (if (.exists (io/file "COOKIE_SECRET"))
+    (read-bytes "COOKIE_SECRET")
+    (let [bytes (random-bytes 16)]
+      (save-bytes! bytes "COOKIE_SECRET")
+      bytes)))
   
 (def app
   (-> routes
