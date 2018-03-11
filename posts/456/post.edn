@@ -1,0 +1,5 @@
+{:id "456"
+  :created #inst "2018-01-25"
+  :author "arthur"
+  :body "The goal of this article is to provide a fairly comprehensive introduction to the Clojure programming language. A large number of features are covered, each in a fairly brief manner. Feel free to skip around to the sections of most interest. The section names in the table of contents are hyperlinks to make this easier when reading on-line."
+  :pictures ["owl.jpg"]}
