@@ -14,6 +14,6 @@
 
 (def port "8080")
 
-(deftask dev
-  []
+(deftask dev []
+  (alter-var-root #'*warn-on-reflection* (constantly true))
   (server/start "-p" port))
