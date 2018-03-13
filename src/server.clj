@@ -20,17 +20,32 @@
     [org.joda.time DateTime]
     [org.joda.time.format DateTimeFormat DateTimeFormatter]))
 
+
+(set! *warn-on-reflection* true)
+
+
+(.mkdirs (io/file "blog_data"))
 (def date-formatter (DateTimeFormat/forPattern "dd.MM.YYYY"))
 
 (def styles (slurp (io/resource "static/styles.css")))
 (def script (slurp (io/resource "static/scripts.js")))
-(def authors {"arturaliiev@gmail.com" "arthur"})
 (def session-ttl (* 1000 86400 14)) ;; 14 days
 (def token-ttl-ms (* 1000 60 15)) ;; token life time 15 min
 
-(.mkdirs (io/file "blog_data"))
 
 (defonce *tokens (atom {}))
+
+(defmacro from-config [name default-value]
+  `(let [file# (io/file "blog_data" ~name)]
+    (when-not (.exists file#)
+      (spit file# ~default-value))
+    (slurp file#)))
+
+(def authors (edn/read-string
+               (from-config "AUTHORS"
+                 (pr-str { "arturaliiev@gmail.com" "arthur"}))))
+
+(def hostname (from-config "HOSTNAME" "http://blog.site"))
 
 (defn render-date [^Date inst]
   (.print ^DateTimeFormatter date-formatter (DateTime. inst)))
@@ -71,15 +86,16 @@
 
 
 (defn send-email! [{:keys [to subject body]}]
-  (println "[ Email sent ]\nTo:" to "\nSubject:" subject "\nBody:" body)
-  (shell/sh
-    "mail"
-    "-s"
-    subject
-    to
-    "-a" "Content-Type: text/html"
-    "-a" "From: Grumpy Admin <admin@grumpy.website>"
-    :in body))
+  (println "[ Email sent ]\nTo:" to "\nSubject:" subject "\nBody:" body))
+  ;; (shell/sh
+  ;;   "mail"
+  ;;   "-s"
+  ;;   subject
+  ;;   to
+  ;;   "-a" "Content-Type: text/html"
+  ;;   "-a" "From: Grumpy Admin <admin@grumpy.website>"
+  ;;   :in body)
+  
 
 ;; Parinfer breaks correct parens location when multi-arg method is used :(
 (defn redirect
@@ -105,19 +121,17 @@
   (str (encode (quot (System/currentTimeMillis) 1000) 6)
     (encode (rand-int (* 64 64 64)) 3)))
 
-
 (defn save-post! [post pictures]
-  (let [ dir           (io/file (str "blog_data/posts/" (:id post)))
-         picture-names (for [[picture idx] (map vector pictures (range))
-                              :let [ in-name  (:filename picture)
+  (let [dir           (io/file (str "blog_data/posts/" (:id post)))
+         picture-names (for [[picture idx] (zip pictures (range))
+                              :let [in-name  (:filename picture)
                                      [_ ext]  (re-matches #".*(\.[^\.]+)" in-name)]]
                          (str (:id post) "_" (inc idx) ext))]
-    (.mkdir dir)
-    (doseq [[picture name] (map vector pictures picture-names)]
+    (.mkdirs dir)
+    (doseq [[picture name] (zip pictures picture-names)]
       (io/copy (:tempfile picture) (io/file dir name))
       (.delete (:tempfile picture)))
-    (spit (io/file dir "post.edn")
-      (pr-str (assoc post :pictures (vec picture-names))))))
+    (spit (io/file dir "post.edn") (pr-str (assoc post :pictures (vec picture-names))))))
 
 
 (defn check-session [req]
@@ -236,8 +250,8 @@
 
 (defn post-ids []
   (->>
-    (for [ name (seq (.list (io/file "posts")))
-           :let [child (io/file "posts" name)]
+    (for [ name (seq (.list (io/file "blog_data/posts")))
+           :let [child (io/file "blog_data/posts" name)]
            :when (.isDirectory child)]
       name)
     (sort)
@@ -267,7 +281,7 @@
     seed))
 
 (when-not (.exists (io/file "blog_data/COOKIE_SECRET"))
-  (save-bytes! "blog_data/COOKIE_SECRET" (random-bytes bytes)))
+  (save-bytes! "blog_data/COOKIE_SECRET" (random-bytes 16)))
 
 (def cookie-secret (read-bytes "blog_data/COOKIE_SECRET" 16))
 
@@ -293,21 +307,22 @@
   (compojure/GET "/post/:post-id" [post-id]
     { :body (render-html (post-page post-id))})
 
-  (compojure/GET "/authenticate" [:as req]
-    (let [ email (get (:params req) "email")
-           token (get (:params req) "token")
-           user (get authors email)
+
+  (compojure/GET "/authenticate" [:as req] ;; ?email=...&token=...&redirect-url=...
+    (let [email        (get (:params req) "email")
+           user         (get authors email)
+           token        (get (:params req) "token")
            redirect-url (get (:params req) "redirect-url")]
       (if (= token (get-token email))
         (do
-          (swap! *tokens dissoc email) ;;killing token after login to refresh
+          (swap! *tokens dissoc email)
           (assoc
-            (redirect redirect-url)
-            :session { :user user
-                       :creater (now)})
-          { :status 403
-            :body "403 Bad token"}))))
-  
+            (redirect redirect-url {})
+            :session { :user    user
+                       :created (now)}))
+        { :status 403
+          :body   "403 Bad token"})))
+
   (compojure/GET "/forbidden" [:as req]
     { :body (render-html (forbidden-page (get (:params req) "redirect-url")))})
 
@@ -327,7 +342,7 @@
         :else
         (let [ token (gen-token)
                redirect-url (get params "redirect-url")
-               link (str (name (:scheme req))
+               link (str hostname
                       "://"
                       (:server-name req)
                       (when-not (= (:server-port req) 80)
@@ -349,7 +364,7 @@
   (compojure/GET "/new" [:as req]
     (or
       (check-session req)
-      (redirect (str "/post/" (next-post-id) "/edit"))))
+      (redirect (str "/post/" (next-post-id) "/edit") {})))
 
   (compojure/GET "/post/:post-id/edit" [post-id :as req]
     (or
@@ -368,7 +383,7 @@
                         :author (get-in req [:session :user])
                         :created (now)}
             [picture])
-          (redirect "/")))))
+          (redirect "/" {})))))
 
   (fn [req]
     { :status 404
