@@ -23,4 +23,4 @@ dependencies:
 test:
   override:
     # Nothing to run here
-    - echo 1
+    - echo "done"
