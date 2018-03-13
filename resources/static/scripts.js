@@ -1,4 +1,12 @@
-function reload_subtitle() {
+window.onload = function() {
+    reloadSubtitle();
+    document.querySelector('.subtitle > span').onclick = reloadSubtitle;
+    if (document.cookie.indexOf("blog_user=") >= 0) {
+        document.body.classList.remove("anonymous");
+    }
+}
+
+function reloadSubtitle() {
     var subtitles = [
         'Отменить изменения? – Отменить / Отмена', 
         'Select purchase to purchase for $0.00 – PURCHASE / CANCEL', 
@@ -15,12 +23,3 @@ function reload_subtitle() {
     var div = document.querySelector('.subtitle > span');
     div.innerHTML = subtitle;
 }
-
-
-window.addEventListener("load", function() {
-    reload_subtitle();
-    document.querySelector('.subtitle > span').onclick = reload_subtitle;
-    if (document.cookie.indexOf("blog_user=") >= 0) {
-        document.body.classList.remove("anonymous");
-    }
-});

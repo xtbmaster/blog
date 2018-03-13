@@ -4,7 +4,7 @@ var loader_status = "IDLE",
 
 function load_posts() {
   loader_status = "LOADING";
-  loader.innerHTML = "Загружаю еще контента...";
+  loader.innerHTML = "Loading more content...";
   loader.classList.remove("loader-error");
   loader.removeEventListener("click", load_posts);
   var posts = document.querySelectorAll(".post"),
@@ -27,7 +27,7 @@ function load_posts() {
       });
     } else {
       loader_status = "ERROR";
-      loader.innerHTML = "Ошибка. Нажмите, чтобы повторить";
+      loader.innerHTML = "Error. Click to repit";
       loader.classList.add("loader-error");
       loader.addEventListener("click", load_posts);
     }

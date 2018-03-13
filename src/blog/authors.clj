@@ -17,23 +17,30 @@
 
 
 (defn save-post! [post pictures]
-  (let [dir           (io/file (str "blog_data/posts/" (:id post)))
-        picture-names (for [[picture idx] (blog/zip pictures (range))
-                            :let [in-name  (:filename picture)
-                                  [_ ext]  (re-matches #".*(\.[^\.]+)" in-name)]]
-                        (str (:id post) "_" (inc idx) ext))]
+  (let [ id (:id post)
+         dir (io/file (str "blog_data/posts/" (:id post)))
+         picture-names (for [[picture idx] (blog/zip pictures (range))
+                              :let [in-name  (:filename picture)
+                                     [_ ext]  (re-matches #".*(\.[^\.]+)" in-name)]]
+                         (str id "_" (inc idx) ext))]
     (.mkdirs dir)
     (doseq [[picture name] (blog/zip pictures picture-names)]
       (io/copy (:tempfile picture) (io/file dir name))
       (.delete (:tempfile picture)))
-    (spit (io/file dir "post.edn") (pr-str (assoc post :pictures (vec picture-names))))))
+    (let [ old-post (blog/get-post id)
+           post' (merge post
+                   { :pictures (vec picture-names)
+                     :created (blog/now)
+                     :updated (blog/now)}
+                   (select-keys old-post [:created]))]
+      (spit (io/file dir "post.edn") (pr-str post')))))
 
 
 (rum/defc edit-post-page [post-id]
   (let [post    (blog/get-post post-id)
-        create? (nil? post)]
+         create? (nil? post)]
     (blog/page { :title (if create? "New post" "Edit post")
-                   :styles "authors.css"}
+                 :styles ["authors.css"]}
       [:form.edit-post
         { :action (str "/post/" post-id "/edit")
           :enctype "multipart/form-data"
@@ -54,7 +61,7 @@
   (compojure/GET "/new" [:as req]
     (or
       (auth/check-session req)
-      (blog/redirect (str "/post/" (next-post-id) "/edit"))))
+      (blog/redirect (str "/post/" (next-post-id) "/edit") {})))
 
   (compojure/GET "/post/:post-id/edit" [post-id :as req]
     (or
@@ -65,12 +72,11 @@
     (compojure/POST "/post/:post-id/edit" [post-id :as req]
       (or
         (auth/check-session req)
-        (let [params  (:multipart-params req)
-              body    (get params "body")
-              picture (get params "picture")]
+        (let [ params  (:multipart-params req)
+               body    (get params "body")
+               picture (get params "picture")]
           (save-post! { :id      post-id
                         :body    body
-                        :author  (get-in req [:session :user])
-                        :created (blog/now)}
-                      [picture])
-          (blog/redirect "/"))))))
+                        :author  (get-in req [:session :user])}
+            [picture])
+          (blog/redirect "/" {}))))))

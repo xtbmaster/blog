@@ -1,4 +1,5 @@
 (ns blog.core
+  (:refer-clojure :exclude [slurp])
   (:require
     [rum.core :as rum]
     [clojure.edn :as edn]
@@ -23,9 +24,16 @@
 
 (def authors (edn/read-string
                (from-config "AUTHORS"
-                 (pr-str { "arturaliiev@gmail.com" "arthur"}))))
+                 (pr-str #{ {:email "arturaliiev@gmail.com" :user "arthur" :name "Arthur Aliiev"}}))))
 
-(def hostname (from-config "HOSTNAME" "http://blog.site"))
+(defn author-by [attr value]
+  (first (filter #(= (get % attr) value) authors)))
+
+;; (def hostname (from-config "HOSTNAME" "http://blog.site"))
+(def hostname (from-config "HOSTNAME" "http://localhost:8080"))
+
+
+(def dev? (= "http://localhost:8080" hostname))
 
 
 (defn zip [coll1 coll2] ;; TODO see map-indexed
@@ -40,10 +48,9 @@
   (- (.getTime (now)) (.getTime inst)))
 
 
-(def date-formatter (DateTimeFormat/forPattern "dd.MM.YYYY"))
+(def ^:private date-formatter (DateTimeFormat/forPattern "dd.MM.YYYY"))
 
-
-(defn render-date [^Date inst]
+(defn format-date [^Date inst]
   (.print ^DateTimeFormatter date-formatter (DateTime. inst)))
 
 
@@ -125,33 +132,51 @@
 
 
 
-(def ^:private script (slurp (io/resource "static/scripts.js")))
+(def resource
+  (cond-> (fn [name]
+            (clojure.core/slurp (io/resource (str "static/" name))))
+    (not dev?)
+    (memoize)))
+            
 
-
-(rum/defc page [opts & childern]
-  (let [{ :keys [title index? styles]
-          :or { title "Blog"
+(rum/defc page [opts & children]
+  (let [{ :keys [title index? styles scripts]
+          :or { title  "Blog"
                 index? false}} opts]
     [:html
       [:head
         [:meta { :http-equiv "Content-Type" :content "text/html; charset=UTF-8"}]
         [:meta { :name "viewport" :content "width=device-width, initial-scale=1.0"}]
+        [:link { :href "/static/favicons/loader.png" :rel "icon" :sizes "196x196"}]
+        [:link { :href "/static/favicons/loader.png"  :rel "icon" :sizes "32x32"}]
+
         [:title title]
-        [:link { :rel "stylesheet" :type "text/css" :href "/static/styles.css"}]]]
-    [:body.anonymous
-      [:header
-        (if index?
-          [:h1 title [:a.new_post.logged_in { :href "/new" } "+"]]
-          [:h1 [:a.title_back {:href "/"} "◄"] title])
-        [:p.subtitle [:span "&nbps;"]]]
-      childern
-      [:footer
-        [:a {:href "https://github.com/xtbmaster"} "Arthur Aliiev"]
-        ". 2018. All rights aren't reserved. Inspired by Nikita Prokopov's 'grumpy.website'."]
-      [:script {:dangerouslySetInnerHTML { :__html script}}]]))
+        [:style { :type "text/css" :dangerouslySetInnerHTML { :__html (resource "styles.css")}}]
+        (for [css styles]
+          [:style { :type "text/css" :dangerouslySetInnerHTML { :__html (resource css)}}])]
+      [:body.anonymous
+        [:header
+          (if index?
+            [:h1.title title [:a.title_new { :href "/new" } "+"]]
+            [:h1.title [:a.title_back {:href "/"} "◄"] title])
+          [:p.subtitle [:span " "]]]
+        children
+        (when index?
+          [:.loader "..."])
+        [:footer
+          [:a {:href "https://github.com/xtbmaster"} "Arthur Aliiev"]
+          ". 2018. All rights aren't reserved. Inspired by Nikita Prokopov's 'grumpy.website'."]
+        [:script {:dangerouslySetInnerHTML { :__html (resource "scripts.js")}}]
+        (for [script scripts]
+          [:script {:dangerouslySetInnerHTML { :__html (resource script)}}])]]))
+
 
 (defn html-response [component]
   { :status 200
     :headers { "Content-Type" "text/html; charset=utf-8"}
     :body (str "<!DOCTYPE html>\n" (rum/render-static-markup component))})
+
+
+
+
 
