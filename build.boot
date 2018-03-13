@@ -17,3 +17,6 @@
 (deftask dev []
   (alter-var-root #'*warn-on-reflection* (constantly true))
   (server/start "-p" port))
+
+(deftask test []
+  (println "Nothing to test yet."))
