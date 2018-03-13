@@ -10,13 +10,13 @@
     [blog.auth :as auth]))
 
 
-(defn next-post-id []
+(defn next-post-id [^java.util.Date inst]
   (str
-    (blog/encode (quot (System/currentTimeMillis) 1000) 6)
+    (blog/encode (quot (.getTime inst) 1000) 6)
     (blog/encode (rand-int (* 64 64 64)) 3)))
 
 
-(defn save-post! [post pictures]
+(defn save-post! [post pictures {:keys [delete?]}]
   (let [ id (:id post)
          dir (io/file (str "blog_data/posts/" (:id post)))
          picture-names (for [[picture idx] (blog/zip pictures (range))
@@ -26,9 +26,10 @@
     (.mkdirs dir)
     (doseq [[picture name] (blog/zip pictures picture-names)]
       (io/copy (:tempfile picture) (io/file dir name))
-      (.delete (:tempfile picture)))
+      (when delete?
+        (.delete (:tempfile picture))))
     (let [ old-post (blog/get-post id)
-           post' (merge post
+           post' (merge
                    { :pictures (vec picture-names)
                      :created (blog/now)
                      :updated (blog/now)}
@@ -61,7 +62,7 @@
   (compojure/GET "/new" [:as req]
     (or
       (auth/check-session req)
-      (blog/redirect (str "/post/" (next-post-id) "/edit") {})))
+      (blog/redirect (str "/post/" (next-post-id (blog/now)) "/edit") {})))
 
   (compojure/GET "/post/:post-id/edit" [post-id :as req]
     (or
@@ -78,5 +79,6 @@
           (save-post! { :id      post-id
                         :body    body
                         :author  (get-in req [:session :user])}
-            [picture])
-          (blog/redirect "/" {}))))))
+            [picture]
+            { :delete? true})
+          (blog/redirect "/"))))))

@@ -131,7 +131,7 @@
         (do
           (swap! *tokens dissoc email)
           (assoc
-            (blog/redirect redirect-url {})
+            (blog/redirect redirect-url)
             :cookies { "blog_user" { :value user}}
             :session { :user    user
                        :created (blog/now)}))
@@ -140,7 +140,7 @@
 
   (compojure/GET "/logout" [:as req]
     (assoc
-      (blog/redirect "/" {})
+      (blog/redirect "/")
       :session nil))
 
 

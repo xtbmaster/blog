@@ -36,8 +36,12 @@
     [:.post_side
       [:img.post_avatar {:src (str "/static/" (:author post) ".gif")}]]
     [:.post_body
-      (for [name (:pictures post)]
-        [:img.post_img { :src (str "/post/" (:id post) "/" name)}])
+      (for [ name (:pictures post)
+             :let [src (str "/post/" (:id post) "/" name)]]
+        (if (str/ends-with? name ".mp4")
+          [:video.post_img { :autoplay true :loop true}
+            [:source { :type "video/mp4" :src src}]]
+          [:img.post_img { :src src}]))
       (for [[p idx] (blog/zip (str/split (:body post) #"(\r?\n)+") (range))]
         [:p.post_p
           (when (== 0 idx)

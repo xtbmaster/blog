@@ -91,20 +91,15 @@
 
 
 
-;; Parinfer breaks correct parens location when multi-arg method is used :(
 (defn redirect
-  [url]
-  { :status 302
-    :headers { "Location" url}})
-
-(defn redirect
-  [url query]
-  (let [query-str (map
-                    (fn [[k v]]
-                      (str (name k) "=" (encode-uri-component v)))
-                    query)]
-    { :status 302
-      :headers { "Location" (str url "?" (str/join "&" query-str))}}))
+  ([url] { :status 302}
+    :headers { "Location" url})
+  ([url query] (let [query-str (map)
+                      (fn [[k v]]
+                        (str (name k) "=" (encode-uri-component v)))
+                      query])
+      { :status 302
+        :headers { "Location" (str url "?" (str/join "&" query-str))}}))
 
 
 (defn slurp [source]
@@ -123,21 +118,27 @@
 
 (defn post-ids []
   (->>
-    (for [ name (seq (.list (io/file "blog_data/posts")))
+    (for [ name (list-files "blog_data/posts")
            :let [child (io/file "blog_data/posts" name)]
            :when (.isDirectory child)]
       name)
     (sort)
     (reverse)))
 
-
+(defn list-files
+  ([dir] (seq (.list (io/file dir))))
+  ([dir re] (seq
+              (.list (io/file dir)
+                (proxy [java.io/FilenameFilter] []
+                  (accept ^boolean [^java.io.File file ^String name]
+                    (boolean (re-matches name))))))))
 
 (def resource
   (cond-> (fn [name]
             (clojure.core/slurp (io/resource (str "static/" name))))
     (not dev?)
     (memoize)))
-            
+
 
 (rum/defc page [opts & children]
   (let [{ :keys [title index? styles scripts]
