@@ -3,18 +3,18 @@
 textarea, input[type=text], button { font: inherit; outline: none; }
 
 textarea, input[type=text] {
-  width: calc(100% + 3.5em);
-  margin: 0 -1.75em;
-  padding: 1em 1.75em;
-  border: 1px solid #DDD;
+    width: calc(100% + 3.5em);
+    margin: 0 -1.75em;
+    padding: 1em 1.75em;
+    border: 1px solid #DDD;
 }
 
 button {
-  padding: 0.5em 1.75em;
-  background: #c3c;
-  color: white;
-  border: none;
-  border-radius: 4px;
+    padding: 0.5em 1.75em;
+    background: #c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
 }
 button:hover { background: #d4d; }
 button:active { background: #c3c; }

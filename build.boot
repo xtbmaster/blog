@@ -10,7 +10,7 @@
   :resource-paths #{"resources" "build"})
 
 (require
-  '[server :as server])
+  '[blog.server :as server])
 
 (def port "8080")
 

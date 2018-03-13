@@ -20,7 +20,7 @@ function reload_subtitle() {
 window.addEventListener("load", function() {
     reload_subtitle();
     document.querySelector('.subtitle > span').onclick = reload_subtitle;
-    if (document.cookie.indexOf("pack_blog_user=") >= 0) {
+    if (document.cookie.indexOf("blog_user=") >= 0) {
         document.body.classList.remove("anonymous");
     }
 });
