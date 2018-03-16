@@ -38,7 +38,7 @@
 
 
 (rum/defc edit-post-page [post-id]
-  (let [post    (blog/get-post post-id)
+  (let [ post    (blog/get-post post-id)
          create? (nil? post)]
     (blog/page { :title (if create? "New post" "Edit post")
                  :styles ["authors.css"]}

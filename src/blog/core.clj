@@ -12,7 +12,6 @@
     [org.joda.time.format DateTimeFormat DateTimeFormatter]))
 
 
-
 (.mkdirs (io/file "blog_data"))
 
 
@@ -79,7 +78,7 @@
 (def ^:const encode-table "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz")
 
 (defn encode [num len]
-  (loop [num  num
+  (loop [ num  num
           list ()
           len  len]
     (if (== 0 len)
@@ -92,14 +91,14 @@
 
 
 (defn redirect
-  ([url] { :status 302}
-    :headers { "Location" url})
-  ([url query] (let [query-str (map)
-                      (fn [[k v]]
-                        (str (name k) "=" (encode-uri-component v)))
-                      query])
-      { :status 302
-        :headers { "Location" (str url "?" (str/join "&" query-str))}}))
+  ([url] { :status 302
+           :headers { "Location" url}})
+  ([url query] (let [ query-str (map
+                                 (fn [[k v]]
+                                   (str (name k) "=" (encode-uri-component v)))
+                                 query)]
+                 { :status 302
+                   :headers { "Location" (str url "?" (str/join "&" query-str))}})))
 
 
 (defn slurp [source]
@@ -115,6 +114,12 @@
       slurp
       (edn/read-string))))
 
+(defn list-files
+  ([dir] (seq (.list (io/file dir))))
+  ([dir re] (seq (.list (io/file dir)
+                (proxy [java.io.FilenameFilter] []
+                  (accept ^boolean [^java.io.File file ^String name]
+                    (boolean (re-matches re name))))))))
 
 (defn post-ids []
   (->>
@@ -125,13 +130,7 @@
     (sort)
     (reverse)))
 
-(defn list-files
-  ([dir] (seq (.list (io/file dir))))
-  ([dir re] (seq
-              (.list (io/file dir)
-                (proxy [java.io/FilenameFilter] []
-                  (accept ^boolean [^java.io.File file ^String name]
-                    (boolean (re-matches name))))))))
+
 
 (def resource
   (cond-> (fn [name]
