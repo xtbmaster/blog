@@ -1,0 +1,5 @@
+{ :compiler-options { :main blog.editor
+                      :asset-path "/static/out"
+                      :parallel-build true
+                      :output-to "static/editor.js"
+                      :output-dir "static/out"}}

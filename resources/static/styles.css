@@ -37,6 +37,9 @@ body.anonymous .title_new { display: none; }
 
 .post { display: flex; justify-content: flex-start; margin-bottom: 4em; }
 .post_side { margin-right: 20px; min-width: 50px; }
+@media (max-width: 399px) {
+    .post_side { display: none; }
+}
 .post_avatar { border-radius: 100%; width: 50px; height: 50px; }
 
 .post_img { max-width: 100%; height: auto; max-height: 500px; margin-bottom: 1em;}
@@ -50,9 +53,16 @@ body.anonymous .post_meta_edit { display: none; }
 
 
 /* FOOTER */
+@keyframes rotating {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 
-.loader { height: 60px; padding: 20px 0; margin: 0 0 3em 0; text-align: center; background: #EEE; }
-.loader-error { cursor: pointer; text-decoration: underline; }
+.loader { margin: 0 0 3em 0; text-align: center; }
+.loader > img { width: 76px; height: 76px; border: 2px solid #000; border-radius: 50%; }
+.loader-loading > img { animation: rotating 1s ease-in-out infinite; }
+.loader-error > img { cursor: pointer; border-color: red; }
+.loader-error > img:hover { position: relative; top: -1px; }
 
 footer {
   padding: 1em 0 3em;

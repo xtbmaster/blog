@@ -84,9 +84,12 @@
         :cookie-attrs { :http-only true
                         :secure false}})))
 
+(defn user [req]
+  (or blog/forced-user
+    (get-in req [:session :user])))
 
 (defn check-session [req]
-  (when (nil? (get-in req [:session :user]))
+  (when (nil? (user req))
     (blog/redirect "forbidden" { :redirect-url (:uri req)})))
 
 

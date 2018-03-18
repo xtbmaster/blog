@@ -29,28 +29,43 @@
           :body (with-out-str
                   (clojure.stacktrace/print-stack-trace (clojure.stacktrace/root-cause e)))}))))
 
-
 (rum/defc post [post]
   [:.post
     { :data-id (:id post)}
     [:.post_side
-      [:img.post_avatar {:src (str "/static/" (:author post) ".gif")}]]
-    [:.post_body
-      (for [ name (:pictures post)
-             :let [src (str "/post/" (:id post) "/" name)]]
-        (if (str/ends-with? name ".mp4")
-          [:video.post_img { :autoplay true :loop true}
-            [:source { :type "video/mp4" :src src}]]
-          [:img.post_img { :src src}]))
-      (for [[p idx] (blog/zip (str/split (:body post) #"(\r?\n)+") (range))]
-        [:p.post_p
-          (when (== 0 idx)
-            [:span.post_author (:author post) ": "])
-          p])
-      [:p.post_meta (blog/format-date (:created post))
-        "//" [:a {:href (str "/post/" (:id post))} "Link"]
-        [:span.post_meta_edit " × " [:a {:href (str "/post/" (:id post) "/edit")} "Edit"]]]]])
-
+      [:img.post_avatar
+        { :src (if (some? (blog/author-by :user (:author post)))
+                 (str "/static/" (:author post) ".jpg")
+                 "/static/loader.png")}]]
+    [:.post_content
+      (when-some [pic (:picture post)]
+        (let [src (str "/post/" (:id post) "/" (:url pic))
+              href (if-some [orig (:picture-original post)]
+                     (str "/post/" (:id post) "/" (:url orig))
+                     src)]
+          (case (blog/content-type pic)
+            :content.type/video
+              [:video.post_video { :autoplay true :loop true}
+                [:source { :type (blog/mime-type (:url pic)) :src src}]]
+            :content.type/image
+              (if-some [[w h] (:dimensions pic)]
+                (let [[w' h'] (blog/fit w h 550 500)]
+                  [:div { :style { :max-width w'}}
+                    [:a.post_img.post_img-fix
+                      { :href href
+                        :target "_blank"
+                        :style { :padding-bottom (-> (/ h w) (* 100) (double) (str "%"))}}
+                      [:img { :src src}]]])
+                [:a.post_img.post_img-flex { :href href, :target "_blank"}
+                  [:img { :src src}]]))))
+      [:.post_body
+        { :dangerouslySetInnerHTML
+          { :__html (blog/format-text
+                      (str "<span class=\"post_author\">" (:author post) ": </span>" (:body post)))}}]
+      [:p.post_meta
+        (blog/format-date (:created post))
+        " // " [:a {:href (str "/post/" (:id post))} "Hyperlink"]
+        [:a.post_meta_edit {:href (str "/post/" (:id post) "/edit")} "Edit"]]]])
 
 (defn with-headers [handler headers]
   (fn [request]
@@ -60,13 +75,13 @@
 
 
 (rum/defc index-page [post-ids]
-  (blog/page { :index? true :scripts ["loader.js"]}
+  (blog/page { :page :index :scripts ["loader.js"]}
     (for [ post-id post-ids]
       (post (blog/get-post post-id)))))
 
 
 (rum/defc post-page [post-id]
-  (blog/page {}
+  (blog/page {:page :post}
     (post (blog/get-post post-id))))
 
 (rum/defc posts-fragment [post-ids]

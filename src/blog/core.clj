@@ -30,7 +30,7 @@
 
 ;; (def hostname (from-config "HOSTNAME" "http://blog.site"))
 (def hostname (from-config "HOSTNAME" "http://localhost:8080"))
-
+(def forced-user (from-confit "USER" nil))
 
 (def dev? (= "http://localhost:8080" hostname))
 
@@ -52,6 +52,19 @@
 (defn format-date [^Date inst]
   (.print ^DateTimeFormatter date-formatter (DateTime. inst)))
 
+(defn format-text [text]
+  (->> (str/split text #"[\r\n]+")
+    (map
+      (fn [paragraph]
+        (as-> paragraph paragraph
+          ;; highlight links
+          (str/replace paragraph #"https?://([^\s<>]+[^\s.,!?:;'\"\-<>()\[\]{}*_])"
+            (fn [[href path]]
+              (let [ norm-path     (re-find #"[^?#]+" path)
+                     without-slash (str/replace norm-path #"/$" "")]
+                (str "<a href=\"" href "\" target=\"_blank\">" without-slash "</a>"))))
+          (str "<p>" paragraph "</p>\n"))))
+    (str/join)))
 
 (defn encode-uri-component [s]
   (-> s
@@ -140,9 +153,9 @@
 
 
 (rum/defc page [opts & children]
-  (let [{ :keys [title index? styles scripts]
+  (let [{ :keys [title page styles scripts]
           :or { title  "Blog"
-                index? false}} opts]
+                page :other}} opts]
     [:html
       [:head
         [:meta { :http-equiv "Content-Type" :content "text/html; charset=UTF-8"}]
@@ -156,13 +169,14 @@
           [:style { :type "text/css" :dangerouslySetInnerHTML { :__html (resource css)}}])]
       [:body.anonymous
         [:header
-          (if index?
-            [:h1.title title [:a.title_new { :href "/new" } "+"]]
+          (case page
+            :index [:h1.title title [:a.title_new { :href "/new" } "+"]]
+            :post [:h1.title [:a {:href "/"} title]]
             [:h1.title [:a.title_back {:href "/"} "◄"] title])
           [:p.subtitle [:span " "]]]
         children
-        (when index?
-          [:.loader "..."])
+        (when (= page :index)
+          [:.loader [:img { :src "/static/favicons/loader.png"}]])
         [:footer
           [:a {:href "https://github.com/xtbmaster"} "Arthur Aliiev"]
           ". 2018. All rights aren't reserved. Inspired by Nikita Prokopov's 'grumpy.website'."]

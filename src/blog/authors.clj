@@ -18,19 +18,24 @@
 
 (defn save-post! [post pictures {:keys [delete?]}]
   (let [ id (:id post)
+         old-post (blog/get-post id)
          dir (io/file (str "blog_data/posts/" (:id post)))
          picture-names (for [[picture idx] (blog/zip pictures (range))
                               :let [in-name  (:filename picture)
                                      [_ ext]  (re-matches #".*(\.[^\.]+)" in-name)]]
                          (str id "_" (inc idx) ext))]
-    (.mkdirs dir)
+    (if (nil? old-post)
+      (.mkdirs dir)
+      (when (not-empty picture-names)
+        (doseq [name (:pictures old-post)]
+          (io/delete-file (io/file dir name)))))
     (doseq [[picture name] (blog/zip pictures picture-names)]
       (io/copy (:tempfile picture) (io/file dir name))
       (when delete?
         (.delete (:tempfile picture))))
-    (let [ old-post (blog/get-post id)
-           post' (merge
-                   { :pictures (vec picture-names)
+    (let [ post' (merge
+                   { :pictures (or (not-empty (vec picture-names))
+                                 (:pictures old-post))
                      :created (blog/now)
                      :updated (blog/now)}
                    (select-keys old-post [:created]))]
@@ -55,7 +60,8 @@
               :placeholder "Write here..."
               :autofocus true}]]
         [:.form_row
-          [:button (if create? "Print!" "Edit")]]])))
+          [:button (if create? "Print!" "Edit")]]]
+      [:script { :src "/static/editor.js"}])))
 
 
 (compojure/defroutes routes
@@ -67,7 +73,7 @@
   (compojure/GET "/post/:post-id/edit" [post-id :as req]
     (or
       (auth/check-session req)
-      (blog/html-response (edit-post-page post-id))))
+      (blog/html-response (edit-post-page post-id (auth/user req)))))
 
   (ring.middleware.multipart-params/wrap-multipart-params
     (compojure/POST "/post/:post-id/edit" [post-id :as req]
@@ -79,6 +85,7 @@
           (save-post! { :id      post-id
                         :body    body
                         :author  (get-in req [:session :user])}
-            [picture]
+            (when (some-> picture :size pos?)
+              [picture])
             { :delete? true})
           (blog/redirect "/"))))))
